@@ -10,16 +10,16 @@ const Blog = ({ blog, updateBlog, setSuccessMessage, setErrorMessage }) => {
   }
   const handleLike = async () => {
     try {
-      // Check if blog.user is defined and has an id
+
       const userId = blog.user ? blog.user.id : null
       const updatedBlog = {
         ...blog,
         votes: blog.votes + 1,
-        user: blog.user // Keep the whole user object
+        user: blog.user 
       }
       console.log('Updating blog:', updatedBlog)
       
-      // Make sure to send only the userId to the server
+  
       const blogToSend = {
         ...updatedBlog,
         user: userId
