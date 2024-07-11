@@ -1,90 +1,105 @@
-import React, { useState } from 'react'
-import blogService from '../services/blogs'
+import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { Card, Button } from 'react-bootstrap';
+import blogService from '../services/blogs';
+import { useNotification } from '../contexts/NotificationContext';
 
-
-const Blog = ({ blog, updateBlog, setSuccessMessage, setErrorMessage }) => {
-  const [visible, setVisible] = useState(false)
+const Blog = ({ blog }) => {
+  const [visible, setVisible] = useState(false);
+  const queryClient = useQueryClient();
+  const { dispatch } = useNotification();
 
   const toggleVisibility = () => {
-    setVisible(!visible)
-  }
-  const handleLike = async () => {
-    try {
+    setVisible(!visible);
+  };
 
-      const userId = blog.user ? blog.user.id : null
-      const updatedBlog = {
-        ...blog,
-        votes: blog.votes + 1,
-        user: blog.user 
-      }
-      console.log('Updating blog:', updatedBlog)
-      
-  
-      const blogToSend = {
-        ...updatedBlog,
-        user: userId
-      }
-  
-      const response = await blogService.updateBlog(blogToSend)
-      updateBlog({
-        ...response,
-        user: blog.user 
-      })
-      setSuccessMessage(`Liked blog "${updatedBlog.title}"`)
-      setTimeout(() => {
-        setSuccessMessage(null)
-      }, 5000)
-    } catch (error) {
-      console.error('Error updating blog:', error)
-      setErrorMessage('Failed to update blog')
-      setTimeout(() => {
-        setErrorMessage(null)
-      }, 5000)
-    }
-  }
+  const likeMutation = useMutation({
+    mutationFn: blogService.updateBlog,
+    onSuccess: (updatedBlog) => {
+      queryClient.setQueryData(['blogs'], (oldBlogs) =>
+        oldBlogs.map((b) => (b.id === updatedBlog.id ? updatedBlog : b))
+      );
+      dispatch({
+        type: 'SET_NOTIFICATION',
+        payload: { message: `Liked blog "${updatedBlog.title}"`, type: 'success' },
+      });
+    },
+    onError: (error) => {
+      dispatch({
+        type: 'SET_NOTIFICATION',
+        payload: { message: 'Failed to update blog', type: 'error' },
+      });
+    },
+  });
 
-  const handleRemove = async () => {
+  const handleLike = () => {
+    const userId = blog.user ? blog.user.id : null;
+    const updatedBlog = {
+      ...blog,
+      votes: blog.votes + 1,
+      user: blog.user,
+    };
+
+    const blogToSend = {
+      ...updatedBlog,
+      user: userId,
+    };
+
+    likeMutation.mutate(blogToSend);
+  };
+
+  const removeMutation = useMutation({
+    mutationFn: blogService.removeBlog,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['blogs'] });
+      dispatch({
+        type: 'SET_NOTIFICATION',
+        payload: { message: `Removed blog "${blog.title}" by ${blog.author}`, type: 'success' },
+      });
+    },
+    onError: (error) => {
+      dispatch({
+        type: 'SET_NOTIFICATION',
+        payload: { message: 'Failed to remove blog', type: 'error' },
+      });
+    },
+  });
+
+  const handleRemove = () => {
     if (window.confirm(`Remove blog "${blog.title}" by ${blog.author}?`)) {
-      try {
-        await blogService.removeBlog(blog.id)
-        setSuccessMessage(`Removed blog "${blog.title}" by ${blog.author}`)
-        setTimeout(() => {
-          setSuccessMessage(null)
-        }, 5000)
-      } catch (error) {
-        console.error('Error removing blog:', error)
-        setErrorMessage('Failed to remove blog')
-        setTimeout(() => {
-          setErrorMessage(null)
-        }, 5000)
-      }
+      removeMutation.mutate(blog.id);
     }
-  }
+  };
 
-  const removeButton = () => (
-    <button onClick={handleRemove}>remove</button>
-  )
+  const removeButton = () => <Button variant="danger" onClick={handleRemove}>Remove</Button>;
 
-  const loggedUser = JSON.parse(window.localStorage.getItem('loggedBlogappUser'))
+  const loggedUser = JSON.parse(window.localStorage.getItem('loggedBlogappUser'));
 
   return (
-    <div style={{ border: '1px solid black', marginBottom: '10px', padding: '10px' }}>
-      <div>
-        {blog.title} {blog.author}
-        <button onClick={toggleVisibility}>
-          {visible ? 'hide' : 'view'}
-        </button>
-      </div>
-      {visible && (
-        <div>
-          <p>URL: {blog.url}</p>
-          <p>Likes: {blog.votes} <button onClick={handleLike}>like</button></p>
-          {blog.user && <p>User: {blog.user.name}</p>}
-          {blog.user && (loggedUser.username === blog.user.username) && removeButton()}
-        </div>
-      )}
-    </div>
-  )
-}
+    <Card style={{ marginBottom: '10px' }}>
+      <Card.Body>
+        <Card.Title>
+          <Link to={`/blogs/${blog.id}`}>
+            {blog.title} {blog.author}
+          </Link>
+          <Button variant="link" onClick={toggleVisibility}>{visible ? 'Hide' : 'View'}</Button>
+        </Card.Title>
+        {visible && (
+          <>
+            <Card.Text>
+              URL: {blog.url}
+            </Card.Text>
+            <Card.Text>
+              Likes: {blog.votes} <Button onClick={handleLike}>Like</Button>
+            </Card.Text>
+            {blog.user && <Card.Text>User: {blog.user.name}</Card.Text>}
+            {blog.user && loggedUser.username === blog.user.username && removeButton()}
+          </>
+        )}
+      </Card.Body>
+    </Card>
+  );
+};
 
-export default Blog
+export default Blog;

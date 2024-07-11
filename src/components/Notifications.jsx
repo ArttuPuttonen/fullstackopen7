@@ -1,14 +1,20 @@
-const Notification = ({ message, type }) => {
+import React from 'react';
+import { Alert } from 'react-bootstrap';
+import { useNotification } from '../contexts/NotificationContext';
+
+const Notification = () => {
+  const { state } = useNotification();
+  const { message, type } = state;
+
   if (!message) {
-    return null
+    return null;
   }
-  if(type === 'success') {
-    return <div className="successMessage">{message}</div>
-  }
-  if(type === 'error') {
-    return <div className="errorMessage">{message}</div>
-  }
-}
 
+  return (
+    <Alert variant={type === 'success' ? 'success' : 'danger'}>
+      {message}
+    </Alert>
+  );
+};
 
-export default Notification
+export default Notification;

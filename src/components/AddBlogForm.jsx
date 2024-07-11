@@ -1,67 +1,61 @@
-import React, { useState } from 'react'
-import blogService from '../services/blogs'
+import React, { useState } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import blogService from '../services/blogs';
+import { useNotification } from '../contexts/NotificationContext';
 
-const AddBlogForm = ({ setBlogs, blogs, setSuccessMessage, setErrorMessage }) => {
-  const [newBlog, setNewBlog] = useState({
-    title: '',
-    author: '',
-    url: ''
-  })
+const AddBlogForm = ({ setAddBlogVisible }) => {
+  const [title, setTitle] = useState('');
+  const [author, setAuthor] = useState('');
+  const [url, setUrl] = useState('');
+  const queryClient = useQueryClient();
+  const { dispatch } = useNotification();
 
-  const addBlog = async (event) => {
-    event.preventDefault()
-    try {
-      const savedBlog = await blogService.create(newBlog)
-      setBlogs(blogs.concat(savedBlog))
-      setNewBlog({ title: '', author: '', url: '' })
-      setSuccessMessage(`A new blog "${savedBlog.title}" by ${savedBlog.author} added`)
-      setTimeout(() => {
-        setSuccessMessage(null)
-      }, 5000)
-    } catch (exception) {
-      console.log('error adding blog', exception)
-      setErrorMessage('Error adding blog')
-      setTimeout(() => {
-        setErrorMessage(null)
-      }, 5000)
-    }
-  }
+  const mutation = useMutation({
+    mutationFn: blogService.create,
+    onSuccess: (newBlog) => {
+      queryClient.invalidateQueries({ queryKey: ['blogs'] });
+      dispatch({ type: 'SET_NOTIFICATION', payload: { message: `A new blog "${newBlog.title}" by ${newBlog.author} added`, type: 'success' } });
+      setAddBlogVisible(false);
+    },
+    onError: (error) => {
+      dispatch({ type: 'SET_NOTIFICATION', payload: { message: error.message, type: 'error' } });
+    },
+  });
+
+  const handleCreateBlog = (event) => {
+    event.preventDefault();
+    mutation.mutate({ title, author, url });
+  };
 
   return (
-    <div>
-      <form onSubmit={addBlog}>
-        <h2>Create new blog</h2>
-        <div>
-          title:
-          <input
-            type="text"
-            value={newBlog.title}
-            name="Title"
-            onChange={({ target }) => setNewBlog({ ...newBlog, title: target.value })}
-          />
-        </div>
-        <div>
-          author:
-          <input
-            type="text"
-            value={newBlog.author}
-            name="Author"
-            onChange={({ target }) => setNewBlog({ ...newBlog, author: target.value })}
-          />
-        </div>
-        <div>
-          url:
-          <input
-            type="text"
-            value={newBlog.url}
-            name="Url"
-            onChange={({ target }) => setNewBlog({ ...newBlog, url: target.value })}
-          />
-        </div>
-        <button type="submit">create</button>
-      </form>
-    </div>
-  )
-}
+    <form onSubmit={handleCreateBlog}>
+      <div>
+        title
+        <input
+          type="text"
+          value={title}
+          onChange={({ target }) => setTitle(target.value)}
+        />
+      </div>
+      <div>
+        author
+        <input
+          type="text"
+          value={author}
+          onChange={({ target }) => setAuthor(target.value)}
+        />
+      </div>
+      <div>
+        url
+        <input
+          type="text"
+          value={url}
+          onChange={({ target }) => setUrl(target.value)}
+        />
+      </div>
+      <button type="submit">create</button>
+    </form>
+  );
+};
 
-export default AddBlogForm
+export default AddBlogForm;
